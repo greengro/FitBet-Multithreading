@@ -3,21 +3,25 @@ package multithread;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.ArrayList;
 
 public class Bet extends Thread{
-	private int id, ownerId, steps; 
+	private int ownerId, steps; 
 	private String title, desc;
 	private boolean active, goalReached;
 	private String dtf;
+	public static Bet bet = Checker.bet;
+	private int betID;
 	
 	//what is date? is it an int or a string??
 	
 
-	public Bet(int id, int ownerId, String title, String desc, int steps, String dtf, boolean active, boolean goal )
-	{ 
-		this.id = id; 
+	public Bet( String title, String desc, int steps, String dtf, boolean active, boolean goal, int ownerId )
+	{  
+		//this.id = id;
 		this.ownerId = ownerId; 
 		this.title = title; 
 		this.desc = desc; 
@@ -30,28 +34,25 @@ public class Bet extends Thread{
 	@Override
 	public void run() {
 		// TODO Auto-generated method stub
-		String sql = "INSERT INTO public.bet(bet_id, bet_owner_user_id, title, description, steps_wagered, date_created, active, achieved_goal)"
-				+ "VALUES(?,?,?,?,?,?,?,?)";
+		String sql = "INSERT INTO public.bets_bet(title, description, steps_wagered, date_created, active, achieved_goal, bet_owner_user_id_id)"
+				+ "VALUES(?,?,?,?,?,?,?) RETURNING id";
 		try(Connection insConn = DriverManager.getConnection(JDBCMain.url, JDBCMain.user, JDBCMain.pwd); 
 				PreparedStatement prep = insConn.prepareStatement(sql);) { 
 			
-			int count  = 0;
-			for (Bet bet : Checker.betArr) {
-                prep.setInt(1, bet.getmyId());
-                prep.setInt(2, bet.getOwnerId());
-                prep.setString(3,  bet.getTitle());
-                prep.setString(4,  bet.getDesc());
-                prep.setInt(5,  bet.getSteps());
-                prep.setString(6, bet.getDtf());
-                prep.setBoolean(7, bet.isActive());
-                prep.setBoolean(8, bet.isGoalReached());
+				ResultSet rs = prep.executeQuery();
+				rs.next(); 
+				betID = rs.getInt(1);
+
+                prep.setString(1,  this.getTitle());
+                prep.setString(2,  this.getDesc());
+                prep.setInt(3,  this.getSteps());
+                prep.setString(4, this.getDtf());
+                prep.setBoolean(5, this.isActive());
+                prep.setBoolean(6, this.isGoalReached());
+                prep.setInt(7, this.getOwnerId());
                 prep.addBatch();
-                count++;
-                // execute every 100 rows or less
-                if (count == Checker.betArr.size()) {
-                    prep.executeBatch();
-                }
-            }
+                prep.executeBatch();
+             
 			
 		}catch(SQLException e)
 		{ 
@@ -59,7 +60,12 @@ public class Bet extends Thread{
 		}
 		
 		//sleep for 10-15min
-		Thread.sleep((long)(10+Math.random()*5)*60*1000);
+		try {
+			Thread.sleep((long)(2+Math.random()*1)*60*1000);
+		} catch (InterruptedException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 		
 		//settle the bet
 		settleBets();
@@ -68,26 +74,21 @@ public class Bet extends Thread{
 		distributePoints();
 	}
 	
-	public void settleBets(ArrayList<Bet> bets) { 
-		String SQL = "UPDATE public.bet "
+	public void settleBets() { 
+		String SQL = "UPDATE public.bets_bet "
                 + "SET active = ? "
-                + "WHERE bet_owner_user_id = 0";
+                + "WHERE bet_owner_user_id_id = ?";
+		
+
 		//public.bet(bet_id, bet_owner_user_id, title, description, steps_wagered, date_created, active, achieved_goal)"
 		try (Connection conn = DriverManager.getConnection(JDBCMain.url, JDBCMain.user, JDBCMain.pwd); 
                 PreparedStatement pstmt = conn.prepareStatement(SQL)) {
 			int count = 0;
-			for(Bet b: bets) 
-			{ 
-				 pstmt.setBoolean(1, false);
-				 doneBets.add(b);
-				 pstmt.addBatch(); //check if you need this for Update
-				 count++;
-			}
-
-			if(count == bets.size())
-			{ 
-				pstmt.executeUpdate();
-			}
+			
+			pstmt.setBoolean(1, false);
+			pstmt.setInt(2, this.getOwnerId());
+			pstmt.executeUpdate();
+			
 			
 
         } catch (SQLException ex) {
@@ -97,26 +98,40 @@ public class Bet extends Thread{
 	}
 	public void distributePoints() 
 	{ 
-		String SQL = "UPDATE user "
-                + "SET points = ? "
-				+ "FROM public.user user, public.user_bets userbets, public.bet bet "
-                + "WHERE bet.bet_id = userbets.bet_id"
-				+ "AND userbets.user_id = 0";
+		String sql = "SELECT amount_bet, betting_against, user_id_id FROM public.bets_userbet WHERE bet_id_id=?";
+		
 		//public.bet(bet_id, bet_owner_user_id, title, description, steps_wagered, date_created, active, achieved_goal)"
 		try (Connection conn = DriverManager.getConnection(JDBCMain.url, JDBCMain.user, JDBCMain.pwd); 
-                PreparedStatement pstmt = conn.prepareStatement(SQL)) {
-			int count = 0;
-			for(Bet b: doneBets) 
+                PreparedStatement pstmt = conn.prepareStatement(sql);) {
+			
+			pstmt.setInt(1, betID);
+			ResultSet rs = pstmt.executeQuery();
+			while(rs.next())
 			{ 
-				pstmt.setInt(1, b.getSteps()*2);
-				pstmt.addBatch();
-				count++;
+				int amnt = rs.getInt("amount_bet");
+				Boolean betAgainst = rs.getBoolean("betting_against"); 
+				int usId = rs.getInt("user_id_id");
 				
+				String SQL =  "UPDATE public.users_profile SET points=? WHERE user=?";
+				try(Connection conn2 = DriverManager.getConnection(JDBCMain.url, JDBCMain.user, JDBCMain.pwd); 
+		                PreparedStatement pstmt2 = conn2.prepareStatement(sql); )
+				{
+					if(!betAgainst) 
+					{ 
+						pstmt2.setInt(1, amnt*2);
+						pstmt2.setInt(2, usId);
+					}
+					
+					pstmt2.executeUpdate();
+					
+				}
+				catch(SQLException ex)
+				{ 
+					 System.out.println(ex.getMessage());
+				}
+				System.out.println("Amount " + amnt + " Bet against " + betAgainst + " User Id" + usId);
 			}
-			if(count == doneBets.size()) 
-			{ 
-				pstmt.executeBatch();
-			}
+			
 
         } catch (SQLException ex) {
             System.out.println(ex.getMessage());
@@ -124,13 +139,13 @@ public class Bet extends Thread{
 		
 	}
 
-	public int getmyId() {
-		return id;
-	}
-
-	public void setId(int id) {
-		this.id = id;
-	}
+//	public int getid() 
+//	{ 
+//		return id;
+//	}
+//	public void setId(int id) { 
+//		this.id = id;
+//	}
 
 	public int getOwnerId() {
 		return ownerId;
