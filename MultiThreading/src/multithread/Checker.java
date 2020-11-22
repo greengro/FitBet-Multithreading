@@ -20,9 +20,18 @@ public class Checker extends Thread{
 	public static Integer numBets = 10;
 	public static ArrayList<Bet> betArr;
 	public static ArrayList<Integer> betIDs;
+	public static Bet bet;
+
+	//public Checker(int house_id)
 	@Override
 	public void run() {
-		// TODO Auto-generated method stub
+		System.out.println("We are running the checker");
+
+		String sql = "SELECT COUNT(*)"
+				+ "FROM public.bets_bet"
+				+ " WHERE active=true AND bet_owner_user_id_id="+Integer.toString(JDBCMain.myId);
+		System.out.println("Using Query: ("+sql+")");
+
 		while(true) 
 		{
 			try { 
@@ -32,44 +41,39 @@ public class Checker extends Thread{
 			{ 
 				e.printStackTrace();
 			}
-			String sql = "SELECT COUNT(bet.active)"
-					+ "FROM public.bet"
-					+ "WHERE bet.active = true";
+			System.out.println("We are checking rn");
+
+
 			try(Connection betsConn = DriverManager.getConnection(JDBCMain.url, JDBCMain.user, JDBCMain.pwd);
-				Statement statement = betsConn.createStatement()) 
+					Statement statement = betsConn.createStatement()) 
 			{ 
 				ResultSet rs = statement.executeQuery(sql);
 				rs.next();
-			    int count = rs.getInt(1);
-			    Bet CPUBet = null;
-			    if(count < numBets)
-			    { 
-			    	int remainder = numBets - count;
-			    	int betNum = 1000;
-			    	DateTimeFormatter dtf = DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss");  
-		    		LocalDateTime now = LocalDateTime.now(); 
-		    		String currDate = dtf.format(now);
-			    	for(int i = 0; i < remainder; i++) 
-			    	{ 
-			    		int minSteps = 10000; 
-			    		int maxSteps = 100000;
-			    		int rand = (int) (Math.random() * (maxSteps - minSteps + 1) + minSteps);
-			    		CPUBet = new Bet(betNum, 0, "Featured Bet",  rand + " steps total", rand, currDate, true, false);
-			    		betArr.add(CPUBet);
-			    		betIDs.add(betNum);
-			    		betNum++;
-			    		
-			    	}
-			    	CPUBet.start();
-			    		
-			    }
-			    	
-			
+				int count = rs.getInt(1);
+				System.out.println("We saw we have "+Integer.toString(count)+" cpu bets");
+				if(count < numBets)
+				{ 
+					int remainder = numBets - count;
+					DateTimeFormatter dtf = DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss");  
+					LocalDateTime now = LocalDateTime.now(); 
+					String currDate = dtf.format(now);
+					for(int i = 0; i < remainder; i++) 
+					{ 
+						int minSteps = 10000; 
+						int maxSteps = 100000;
+						int rand = (int) (Math.random() * (maxSteps - minSteps + 1) + minSteps);
+						bet = new Bet( "Featured Challenge",  rand + " steps total", rand, currDate, true, false, JDBCMain.myId);
+						bet.start();
+					}
+				}
+
+
 			}catch(SQLException e) 
 			{ 
-				e.getMessage();
+				e.printStackTrace();
+				//e.getMessage();
 			}
-		
+
 
 		}
 	}

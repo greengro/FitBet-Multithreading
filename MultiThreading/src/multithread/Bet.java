@@ -3,21 +3,25 @@ package multithread;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.ArrayList;
 
 public class Bet extends Thread{
-	private int id, ownerId, steps; 
+	private int ownerId, steps; 
 	private String title, desc;
 	private boolean active, goalReached;
 	private String dtf;
-	
-	//what is date? is it an int or a string??
-	
+	public static Bet bet = Checker.bet;
+	private int betID;
 
-	public Bet(int id, int ownerId, String title, String desc, int steps, String dtf, boolean active, boolean goal )
-	{ 
-		this.id = id; 
+	//what is date? is it an int or a string??
+
+
+	public Bet( String title, String desc, int steps, String dtf, boolean active, boolean goal, int ownerId )
+	{  
+		//this.id = id;
 		this.ownerId = ownerId; 
 		this.title = title; 
 		this.desc = desc; 
@@ -26,111 +30,158 @@ public class Bet extends Thread{
 		this.active = active; 
 		this.goalReached = goal;
 	}
-	
+
 	@Override
 	public void run() {
-		// TODO Auto-generated method stub
-		String sql = "INSERT INTO public.bet(bet_id, bet_owner_user_id, title, description, steps_wagered, date_created, active, achieved_goal)"
-				+ "VALUES(?,?,?,?,?,?,?,?)";
+		System.out.println("Created a new bet, and I am now inserting it "+Integer.toString(steps));
+		String sql = "INSERT INTO public.bets_bet(title, description, steps_wagered, date_created, active, achieved_goal, bet_owner_user_id_id)"
+				+ "VALUES(?,?,?,?,?,?,?) RETURNING id";
 		try(Connection insConn = DriverManager.getConnection(JDBCMain.url, JDBCMain.user, JDBCMain.pwd); 
 				PreparedStatement prep = insConn.prepareStatement(sql);) { 
-			
-			int count  = 0;
-			for (Bet bet : Checker.betArr) {
-                prep.setInt(1, bet.getmyId());
-                prep.setInt(2, bet.getOwnerId());
-                prep.setString(3,  bet.getTitle());
-                prep.setString(4,  bet.getDesc());
-                prep.setInt(5,  bet.getSteps());
-                prep.setString(6, bet.getDtf());
-                prep.setBoolean(7, bet.isActive());
-                prep.setBoolean(8, bet.isGoalReached());
-                prep.addBatch();
-                count++;
-                // execute every 100 rows or less
-                if (count == Checker.betArr.size()) {
-                    prep.executeBatch();
-                }
-            }
-			
+			prep.setString(1,  this.getTitle());
+			prep.setString(2,  this.getDesc());
+			prep.setInt(3,  this.getSteps());
+			prep.setString(4, this.getDtf());
+			prep.setBoolean(5, this.isActive());
+			prep.setBoolean(6, this.isGoalReached());
+			prep.setInt(7, this.getOwnerId());
+
+			ResultSet rs = prep.executeQuery();
+			rs.next(); 
+			betID = rs.getInt(1);
+			System.out.println("The bet id is "+Integer.toString(betID));
 		}catch(SQLException e)
 		{ 
 			e.printStackTrace();
 		}
-		
+
 		//sleep for 10-15min
-		Thread.sleep((long)(10+Math.random()*5)*60*1000);
-		
+		try {
+			sleep(45*1000+(long)(Math.random()*1)*60*1000);
+		} catch (InterruptedException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
+		System.out.println("We have finished the sleep portion///////////////////////////////////////////////");
+
 		//settle the bet
 		settleBets();
-		
+
 		//etc 
 		distributePoints();
 	}
-	
-	public void settleBets(ArrayList<Bet> bets) { 
-		String SQL = "UPDATE public.bet "
-                + "SET active = ? "
-                + "WHERE bet_owner_user_id = 0";
+
+	public void settleBets() { 
+		System.out.println("Setting the bet");
+
+		String SQL = "UPDATE public.bets_bet "
+				+ "SET active = ?, achieved_goal = ?"
+				+ "WHERE id = ?";
+
+
 		//public.bet(bet_id, bet_owner_user_id, title, description, steps_wagered, date_created, active, achieved_goal)"
 		try (Connection conn = DriverManager.getConnection(JDBCMain.url, JDBCMain.user, JDBCMain.pwd); 
-                PreparedStatement pstmt = conn.prepareStatement(SQL)) {
-			int count = 0;
-			for(Bet b: bets) 
-			{ 
-				 pstmt.setBoolean(1, false);
-				 doneBets.add(b);
-				 pstmt.addBatch(); //check if you need this for Update
-				 count++;
-			}
+				PreparedStatement pstmt = conn.prepareStatement(SQL)) {
+			pstmt.setBoolean(1, false);
 
-			if(count == bets.size())
-			{ 
-				pstmt.executeUpdate();
+			if(Math.random() > .5) {
+				System.out.println("Setting it to be true");
+				this.goalReached = true;
 			}
-			
+			pstmt.setBoolean(2, this.isGoalReached());
 
-        } catch (SQLException ex) {
-            System.out.println(ex.getMessage());
-        }
-		
+			pstmt.setInt(3, this.betID);
+
+			pstmt.executeUpdate();
+		} catch (SQLException ex) {
+			ex.printStackTrace();
+		}
+
 	}
 	public void distributePoints() 
 	{ 
-		String SQL = "UPDATE user "
-                + "SET points = ? "
-				+ "FROM public.user user, public.user_bets userbets, public.bet bet "
-                + "WHERE bet.bet_id = userbets.bet_id"
-				+ "AND userbets.user_id = 0";
+		System.out.println("We are distributing the points");
+
+		String sql = "SELECT amount_bet, betting_against, user_id_id FROM public.bets_userbet WHERE bet_id_id=?";
+
 		//public.bet(bet_id, bet_owner_user_id, title, description, steps_wagered, date_created, active, achieved_goal)"
 		try (Connection conn = DriverManager.getConnection(JDBCMain.url, JDBCMain.user, JDBCMain.pwd); 
-                PreparedStatement pstmt = conn.prepareStatement(SQL)) {
-			int count = 0;
-			for(Bet b: doneBets) 
+				PreparedStatement pstmt = conn.prepareStatement(sql);) {
+
+			pstmt.setInt(1, betID);
+			ResultSet rs = pstmt.executeQuery();
+			while(rs.next())
 			{ 
-				pstmt.setInt(1, b.getSteps()*2);
-				pstmt.addBatch();
-				count++;
+				int amnt = rs.getInt("amount_bet");
+				Boolean betAgainst = rs.getBoolean("betting_against"); 
+				int usId = rs.getInt("user_id_id");
+				int alreadyPoints = 0;
+
+				//if you lose the bet, then we don't need to do anything else
+				// T F --> get points
+				// T T --> no points
+				// F T --> get points
+				// F F --> no points
+				if(betAgainst == this.goalReached) {
+					System.out.println("Losing userbet, contnueing");
+					continue;
+				}
 				
+				String SQL =  "SELECT public.users_profile.points FROM public.users_profile WHERE user_id=?";
+				System.out.println("The user_id is "+Integer.toString(usId));
+				
+				try(Connection conn2 = DriverManager.getConnection(JDBCMain.url, JDBCMain.user, JDBCMain.pwd); 
+						PreparedStatement pstmt2 = conn2.prepareStatement(SQL); )
+				{
+					pstmt2.setInt(1, usId);
+
+					ResultSet r = pstmt2.executeQuery();
+					r.next(); 
+					alreadyPoints = r.getInt(1);
+					System.out.println("We got the points "+Integer.toString(alreadyPoints));
+				}
+				catch(SQLException ex)
+				{ 
+					ex.printStackTrace();
+					//System.out.println(ex.getMessage());
+				}
+
+				SQL =  "UPDATE public.users_profile SET points=? WHERE user_id=?";
+				try(Connection conn2 = DriverManager.getConnection(JDBCMain.url, JDBCMain.user, JDBCMain.pwd); 
+						PreparedStatement pstmt2 = conn2.prepareStatement(SQL); )
+				{
+					if(!betAgainst) 
+					{ 
+						pstmt2.setInt(1, alreadyPoints+amnt*2);
+						pstmt2.setInt(2, usId);
+					}
+
+					pstmt2.executeUpdate();
+
+				}
+				catch(SQLException ex)
+				{ 
+					ex.printStackTrace();
+					//System.out.println(ex.getMessage());
+				}
+				System.out.println("Amount " + amnt + " Bet against " + betAgainst + " User Id" + usId);
 			}
-			if(count == doneBets.size()) 
-			{ 
-				pstmt.executeBatch();
-			}
 
-        } catch (SQLException ex) {
-            System.out.println(ex.getMessage());
-        }
-		
+
+		} catch (SQLException ex) {
+			System.out.println(ex.getMessage());
+		}
+
 	}
 
-	public int getmyId() {
-		return id;
-	}
-
-	public void setId(int id) {
-		this.id = id;
-	}
+	//	public int getid() 
+	//	{ 
+	//		return id;
+	//	}
+	//	public void setId(int id) { 
+	//		this.id = id;
+	//	}
 
 	public int getOwnerId() {
 		return ownerId;
@@ -187,7 +238,7 @@ public class Bet extends Thread{
 	public void setDtf(String dtf) {
 		this.dtf = dtf;
 	}
-	
+
 }
 
 
