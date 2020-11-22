@@ -77,7 +77,7 @@ public class Bet extends Thread{
 
 		String SQL = "UPDATE public.bets_bet "
 				+ "SET active = ?, achieved_goal = ?"
-				+ "WHERE bet_owner_user_id_id = ?";
+				+ "WHERE id = ?";
 
 
 		//public.bet(bet_id, bet_owner_user_id, title, description, steps_wagered, date_created, active, achieved_goal)"
@@ -89,9 +89,9 @@ public class Bet extends Thread{
 				System.out.println("Setting it to be true");
 				this.goalReached = true;
 			}
-			pstmt.setBoolean(2, this.goalReached);
+			pstmt.setBoolean(2, this.isGoalReached());
 
-			pstmt.setInt(3, this.getOwnerId());
+			pstmt.setInt(3, this.betID);
 
 			pstmt.executeUpdate();
 		} catch (SQLException ex) {
@@ -119,7 +119,11 @@ public class Bet extends Thread{
 				int alreadyPoints = 0;
 
 				//if you lose the bet, then we don't need to do anything else
-				if(betAgainst != this.goalReached) {
+				// T F --> get points
+				// T T --> no points
+				// F T --> get points
+				// F F --> no points
+				if(betAgainst == this.goalReached) {
 					System.out.println("Losing userbet, contnueing");
 					continue;
 				}
