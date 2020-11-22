@@ -11,51 +11,88 @@ import java.util.ArrayList;
 
 
 public class JDBCMain {
-	
+
 	public static String url = "jdbc:postgresql://localhost:5555/fitbet?stringtype=unspecified";
 	public static String user = "postgres";
 	public static String pwd = "postgres";
-	public static ArrayList<Bet> bets;
-	public static ArrayList<User> users; 
-	public static ArrayList<UserBets> userBets;
 	public static int myId;
+	
 	public static void main(String[] args) {
-		
+
 		System.out.println("Hello there jared");
 		// TODO Auto-generated method stub
 
-		
+
 		String SQL = "INSERT INTO public.auth_user (email, last_name, first_name, password, is_superuser, username, is_staff, is_active, date_joined) VALUES "
 				+ "('fakeEmail','Bets','House','password', false, 'HouseBets', false, true,'2020-11-12 00:15:39.013706+00') RETURNING id";
-		
+		boolean error = false;
 		try(Connection betsConn = DriverManager.getConnection(JDBCMain.url, JDBCMain.user, JDBCMain.pwd);
 				Statement prep = betsConn.createStatement();)
-			{ 
-				ResultSet rs = prep.executeQuery(SQL);
-				myId = rs.getInt("id");
-				System.out.println("ID " + myId);
-				
-			}
+		{ 
+			ResultSet rs = prep.executeQuery(SQL);
+			rs.next();
+			myId = rs.getInt("id");
+			System.out.println("ID " + myId);
+
+		}
 		catch(Exception e) 
 		{ 
-			e.printStackTrace();
+			//e.printStackTrace();
+			System.out.println("there was an issue with the house user");
+			error = true;			
 		}
-		getBets();
-		getUserBets(); 
-		UserBetThread usThread = new UserBetThread(); 
-		usThread.insert(userBets);
+
+		if(error) {
+			System.out.println("Now looking for existing house user");
+			SQL = "SELECT id FROM public.auth_user WHERE username='HouseBets'";
+			try(Connection betsConn = DriverManager.getConnection(JDBCMain.url, JDBCMain.user, JDBCMain.pwd);
+					Statement prep = betsConn.createStatement();)
+			{ 
+				ResultSet rs = prep.executeQuery(SQL);
+				rs.next();
+				myId = rs.getInt("id");
+				System.out.println("ID " + myId);
+
+			}
+			catch(Exception e) 
+			{ 
+				//e.printStackTrace();
+				System.out.println("there was an issue with the house user");
+
+			}
+		}
 		
-		
-		for(Bet b: bets) //inserts bets into database
+		//remove pre-existing house bets
+		SQL = "DELETE FROM public.bets_userbet WHERE bet_id_id IN (SELECT id FROM public.bets_bet WHERE bet_owner_user_id_id="+Integer.toString(myId)+")";
+		try(Connection betsConn = DriverManager.getConnection(JDBCMain.url, JDBCMain.user, JDBCMain.pwd);
+				Statement prep = betsConn.createStatement();)
 		{ 
-			b.start();
+			prep.executeQuery(SQL);
+		}
+		catch(Exception e) 
+		{ 
+			System.out.println("Exception removing all the pre-existing house userbets");
+
+		}
+		
+		SQL = "DELETE FROM public.bets_bet WHERE bet_owner_user_id_id="+Integer.toString(myId);
+		try(Connection betsConn = DriverManager.getConnection(JDBCMain.url, JDBCMain.user, JDBCMain.pwd);
+				Statement prep = betsConn.createStatement();)
+		{ 
+			prep.executeQuery(SQL);
+		}
+		catch(Exception e) 
+		{ 
+			System.out.println("Exception removing all the pre-existing house bets");
+
 		}
 
 		Checker check = new Checker(); 
-	
+
 		check.run(); 
 	}
-	public static void getBets() 
+
+	/*public static void getBets() 
 	{ 
 		DateTimeFormatter dtf = DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss");  
 		LocalDateTime now = LocalDateTime.now(); 
@@ -71,7 +108,7 @@ public class JDBCMain {
 		Bet bet9 = new Bet( "Running a marathon", "35000 steps in a day", 3500, currDate, true, false, myId);
 		Bet bet10 = new Bet("Walking in the morning", "3000 steps in a day", 3500, currDate, true, false, myId);
 		Bet bet11 = new Bet( "Completing a half marathon", "17500 steps in a day", 17500, currDate, true, false, myId);
-		
+
 		bets.add(bet1);
 		bets.add(bet2); 
 		bets.add(bet3);
@@ -84,34 +121,34 @@ public class JDBCMain {
 		bets.add(bet10);
 		bets.add(bet11);
 	}
-//	public static void getUsers() 
-//	{ 
-//		
-//		User us1 = new User(1, "User1", "GetFit", "user1@usc.edu", "fitness123", 500, 50);
-//		User us2 = new User(2, "User2", "LovesFit", "user2@gmail.com", "fitness123", 5000, 500);
-//		User us3 = new User(3, "User3", "Fitness", "user3@yahoo.com", "fitness123", 100, 0);
-//		User us4 = new User(4, "User4", "Running", "user4@aol.com", "fitness123", 10000, 1000);
-//		User us5 = new User(5, "Jared", "Stigter", "jstigter@usc.edu", "fitness123", 10000, 1000);
-//		User us6 = new User(6, "Gabe", "Dalessandro", "gdalessa@usc.edu", "fitness123", 20000, 1000);
-//		User us7 = new User(7, "Carson", "Greengrove", "cgreengrove@usc.edu", "fitness123", 50000, 1000);
-//		User us8 = new User(8, "Elissa", "Perdue", "eperdue@usc.edu", "fitness123", 23000, 1000);
-//		User us9 = new User(9, "TJ", "Ram", "tram@usc.edu", "fitness123", 32000, 1000);
-//		User us10 = new User(10, "Christian", "Barrett", "cbarrett@usc.edu", "fitness123", 40000, 1000);
-//		User us11 = new User(11, "Amy", "Cosgrove", "acosgrove@usc.edu", "fitness123", 40000, 1500);
-//		
-//		users.add(us1);
-//		users.add(us2);
-//		users.add(us3);
-//		users.add(us4);
-//		users.add(us5);
-//		users.add(us6);
-//		users.add(us7);
-//		users.add(us8);
-//		users.add(us9);
-//		users.add(us10);
-//		users.add(us11);
-//		
-//	}
+	//	public static void getUsers() 
+	//	{ 
+	//		
+	//		User us1 = new User(1, "User1", "GetFit", "user1@usc.edu", "fitness123", 500, 50);
+	//		User us2 = new User(2, "User2", "LovesFit", "user2@gmail.com", "fitness123", 5000, 500);
+	//		User us3 = new User(3, "User3", "Fitness", "user3@yahoo.com", "fitness123", 100, 0);
+	//		User us4 = new User(4, "User4", "Running", "user4@aol.com", "fitness123", 10000, 1000);
+	//		User us5 = new User(5, "Jared", "Stigter", "jstigter@usc.edu", "fitness123", 10000, 1000);
+	//		User us6 = new User(6, "Gabe", "Dalessandro", "gdalessa@usc.edu", "fitness123", 20000, 1000);
+	//		User us7 = new User(7, "Carson", "Greengrove", "cgreengrove@usc.edu", "fitness123", 50000, 1000);
+	//		User us8 = new User(8, "Elissa", "Perdue", "eperdue@usc.edu", "fitness123", 23000, 1000);
+	//		User us9 = new User(9, "TJ", "Ram", "tram@usc.edu", "fitness123", 32000, 1000);
+	//		User us10 = new User(10, "Christian", "Barrett", "cbarrett@usc.edu", "fitness123", 40000, 1000);
+	//		User us11 = new User(11, "Amy", "Cosgrove", "acosgrove@usc.edu", "fitness123", 40000, 1500);
+	//		
+	//		users.add(us1);
+	//		users.add(us2);
+	//		users.add(us3);
+	//		users.add(us4);
+	//		users.add(us5);
+	//		users.add(us6);
+	//		users.add(us7);
+	//		users.add(us8);
+	//		users.add(us9);
+	//		users.add(us10);
+	//		users.add(us11);
+	//		
+	//	}
 	public static void getUserBets() 
 	{ 
 		DateTimeFormatter dtf = DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss");  
@@ -125,7 +162,7 @@ public class JDBCMain {
 		UserBets ub6 = new UserBets(6, 2, 9, 100, false);
 		UserBets ub7 = new UserBets(7, 2, 10, 200, false);
 		UserBets ub8 = new UserBets(8, 2, 11, 300, false);
-		
+
 		userBets.add(ub1);
 		userBets.add(ub2);
 		userBets.add(ub3);
@@ -134,8 +171,8 @@ public class JDBCMain {
 		userBets.add(ub6);
 		userBets.add(ub7);
 		userBets.add(ub8);
-		
+
 
 	}
-
+*/
 }
