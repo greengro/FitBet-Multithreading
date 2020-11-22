@@ -56,13 +56,14 @@ public class Checker extends Thread{
 			    		int maxSteps = 100000;
 			    		int rand = (int) (Math.random() * (maxSteps - minSteps + 1) + minSteps);
 			    		bet = new Bet( "Featured Challenge",  rand + " steps total", rand, currDate, true, false, JDBCMain.myId);
-			    		betArr.add(bet);
+			    		bet.start();
+//			    		betArr.add(bet);
 			    		
 			    	}
-			    	for(Bet b: betArr) 
-			    	{ 
-			    		b.start();
-			    	}
+//			    	for(Bet b: betArr) 
+//			    	{ 
+//			    		b.start();
+//			    	}
 			    		
 			    }
 			    	

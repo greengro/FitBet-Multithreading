@@ -61,7 +61,7 @@ public class Bet extends Thread{
 		
 		//sleep for 10-15min
 		try {
-			Thread.sleep((long)(2+Math.random()*1)*60*1000);
+			sleep((long)(2+Math.random()*1)*60*1000);
 		} catch (InterruptedException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
