@@ -16,12 +16,12 @@ public class Bet extends Thread{
 	public static Bet bet = Checker.bet;
 	private int betID;
 
-	//what is date? is it an int or a string??
+
+	//creating a Bet thread
 
 
 	public Bet( String title, String desc, int steps, String dtf, boolean active, boolean goal, int ownerId )
 	{  
-		//this.id = id;
 		this.ownerId = ownerId; 
 		this.title = title; 
 		this.desc = desc; 
@@ -34,6 +34,7 @@ public class Bet extends Thread{
 	@Override
 	public void run() {
 		System.out.println("Created a new bet, and I am now inserting it "+Integer.toString(steps));
+		//inserting a bet into the database
 		String sql = "INSERT INTO public.bets_bet(title, description, steps_wagered, date_created, active, achieved_goal, bet_owner_user_id_id)"
 				+ "VALUES(?,?,?,?,?,?,?) RETURNING id";
 		try(Connection insConn = DriverManager.getConnection(JDBCMain.url, JDBCMain.user, JDBCMain.pwd); 
@@ -55,7 +56,8 @@ public class Bet extends Thread{
 			e.printStackTrace();
 		}
 
-		//sleep for 10-15min
+		//sleep for a long period of time so that we give the user time to complete the bet in real time
+		//we made it less for testing purposes so that we can easily show and resolve the bets
 		try {
 			sleep(45*1000+(long)(Math.random()*1)*60*1000);
 		} catch (InterruptedException e) {
@@ -66,10 +68,8 @@ public class Bet extends Thread{
 		System.out.println("We have finished the sleep portion///////////////////////////////////////////////");
 
 		//settle the bet
-		settleBets();
-
-		//etc 
-		distributePoints();
+		settleBets(); //the time frame for the bet is over so it is time to finish the bet
+		distributePoints(); //determine if the user wins or loses and distribute the points
 	}
 
 	public void settleBets() { 
@@ -78,9 +78,7 @@ public class Bet extends Thread{
 		String SQL = "UPDATE public.bets_bet "
 				+ "SET active = ?, achieved_goal = ?"
 				+ "WHERE id = ?";
-
-
-		//public.bet(bet_id, bet_owner_user_id, title, description, steps_wagered, date_created, active, achieved_goal)"
+		
 		try (Connection conn = DriverManager.getConnection(JDBCMain.url, JDBCMain.user, JDBCMain.pwd); 
 				PreparedStatement pstmt = conn.prepareStatement(SQL)) {
 			pstmt.setBoolean(1, false);
@@ -105,7 +103,6 @@ public class Bet extends Thread{
 
 		String sql = "SELECT amount_bet, betting_against, user_id_id FROM public.bets_userbet WHERE bet_id_id=?";
 
-		//public.bet(bet_id, bet_owner_user_id, title, description, steps_wagered, date_created, active, achieved_goal)"
 		try (Connection conn = DriverManager.getConnection(JDBCMain.url, JDBCMain.user, JDBCMain.pwd); 
 				PreparedStatement pstmt = conn.prepareStatement(sql);) {
 
@@ -124,7 +121,7 @@ public class Bet extends Thread{
 				// F T --> get points
 				// F F --> no points
 				if(betAgainst == this.goalReached) {
-					System.out.println("Losing userbet, contnueing");
+					System.out.println("Losing userbet, continuing");
 					continue;
 				}
 				
@@ -135,7 +132,6 @@ public class Bet extends Thread{
 						PreparedStatement pstmt2 = conn2.prepareStatement(SQL); )
 				{
 					pstmt2.setInt(1, usId);
-
 					ResultSet r = pstmt2.executeQuery();
 					r.next(); 
 					alreadyPoints = r.getInt(1);
@@ -144,7 +140,6 @@ public class Bet extends Thread{
 				catch(SQLException ex)
 				{ 
 					ex.printStackTrace();
-					//System.out.println(ex.getMessage());
 				}
 
 				SQL =  "UPDATE public.users_profile SET points=? WHERE user_id=?";
@@ -163,7 +158,6 @@ public class Bet extends Thread{
 				catch(SQLException ex)
 				{ 
 					ex.printStackTrace();
-					//System.out.println(ex.getMessage());
 				}
 				System.out.println("Amount " + amnt + " Bet against " + betAgainst + " User Id" + usId);
 			}
@@ -174,14 +168,6 @@ public class Bet extends Thread{
 		}
 
 	}
-
-	//	public int getid() 
-	//	{ 
-	//		return id;
-	//	}
-	//	public void setId(int id) { 
-	//		this.id = id;
-	//	}
 
 	public int getOwnerId() {
 		return ownerId;

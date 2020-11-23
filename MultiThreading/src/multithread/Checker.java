@@ -22,7 +22,6 @@ public class Checker extends Thread{
 	public static ArrayList<Integer> betIDs;
 	public static Bet bet;
 
-	//public Checker(int house_id)
 	@Override
 	public void run() {
 		System.out.println("We are running the checker");
@@ -32,7 +31,7 @@ public class Checker extends Thread{
 				+ " WHERE active=true AND bet_owner_user_id_id="+Integer.toString(JDBCMain.myId);
 		System.out.println("Using Query: ("+sql+")");
 
-		while(true) 
+		while(true) //always checking if we have a minimum of 10 featured bets at all times
 		{
 			try { 
 				Thread.sleep(1000);
@@ -62,8 +61,8 @@ public class Checker extends Thread{
 						int minSteps = 10000; 
 						int maxSteps = 100000;
 						int rand = (int) (Math.random() * (maxSteps - minSteps + 1) + minSteps);
-						bet = new Bet( "Featured Challenge",  rand + " steps total", rand, currDate, true, false, JDBCMain.myId);
-						bet.start();
+						bet = new Bet( "Featured Challenge",  rand + " steps total", rand, currDate, true, false, JDBCMain.myId); //create bet thread
+						bet.start(); //run bet thread
 					}
 				}
 
@@ -71,7 +70,6 @@ public class Checker extends Thread{
 			}catch(SQLException e) 
 			{ 
 				e.printStackTrace();
-				//e.getMessage();
 			}
 
 
