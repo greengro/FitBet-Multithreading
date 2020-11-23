@@ -59,7 +59,7 @@ public class Bet extends Thread{
 		//sleep for a long period of time so that we give the user time to complete the bet in real time
 		//we made it less for testing purposes so that we can easily show and resolve the bets
 		try {
-			sleep(45*1000+(long)(Math.random()*1)*60*1000);
+			sleep(60*1000+(long)(Math.random()*1)*60*1000);
 		} catch (InterruptedException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -101,7 +101,7 @@ public class Bet extends Thread{
 	{ 
 		System.out.println("We are distributing the points");
 
-		String sql = "SELECT amount_bet, betting_against, user_id_id FROM public.bets_userbet WHERE bet_id_id=?";
+		String sql = "SELECT id, amount_bet, betting_against, user_id_id FROM public.bets_userbet WHERE bet_id_id=?";
 
 		try (Connection conn = DriverManager.getConnection(JDBCMain.url, JDBCMain.user, JDBCMain.pwd); 
 				PreparedStatement pstmt = conn.prepareStatement(sql);) {
@@ -110,6 +110,7 @@ public class Bet extends Thread{
 			ResultSet rs = pstmt.executeQuery();
 			while(rs.next())
 			{ 
+				int current_id = rs.getInt("id");
 				int amnt = rs.getInt("amount_bet");
 				Boolean betAgainst = rs.getBoolean("betting_against"); 
 				int usId = rs.getInt("user_id_id");
@@ -150,6 +151,24 @@ public class Bet extends Thread{
 					{ 
 						pstmt2.setInt(1, alreadyPoints+amnt*2);
 						pstmt2.setInt(2, usId);
+					}
+
+					pstmt2.executeUpdate();
+
+				}
+				catch(SQLException ex)
+				{ 
+					ex.printStackTrace();
+				}
+				
+				SQL =  "UPDATE public.bets_userbet SET payout=? WHERE id=?";
+				try(Connection conn2 = DriverManager.getConnection(JDBCMain.url, JDBCMain.user, JDBCMain.pwd); 
+						PreparedStatement pstmt2 = conn2.prepareStatement(SQL); )
+				{
+					if(!betAgainst) 
+					{ 
+						pstmt2.setInt(1, amnt*2);
+						pstmt2.setInt(2, current_id);
 					}
 
 					pstmt2.executeUpdate();
